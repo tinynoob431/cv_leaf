@@ -16,6 +16,7 @@ datasets/
 # Temporary packaging artifacts
 submission_bundle/
 *.zip
+~$*.docx
 
 # OS files
 Thumbs.db
