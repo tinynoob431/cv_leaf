@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment / local caches
+.ipynb_checkpoints/
+
+# Large generated training artifacts
+outputs_leaf_ablation/
+
+# Raw downloaded dataset archive and extracted full copy
+datasets/
+
+# Temporary packaging artifacts
+submission_bundle/
+*.zip
+
+# OS files
+Thumbs.db
+.DS_Store

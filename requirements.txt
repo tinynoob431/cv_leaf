@@ -1,0 +1,8 @@
+paddlepaddle==3.3.1
+numpy>=2.0.0
+pandas>=2.0.0
+matplotlib>=3.8.0
+Pillow>=10.0.0
+scikit-learn>=1.5.0
+python-pptx>=1.0.2
+python-docx>=1.1.2
