@@ -1,0 +1,5 @@
+source=plantvillage
+train_per_class=120
+eval_per_class=30
+seed=2026
+classes=Orange___Haunglongbing_(Citrus_greening),Tomato___Tomato_Yellow_Leaf_Curl_Virus,Soybean___healthy,Peach___Bacterial_spot,Tomato___Bacterial_spot

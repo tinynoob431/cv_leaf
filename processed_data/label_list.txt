@@ -1,5 +1,5 @@
-0	daisy
-1	dandelion
-2	roses
-3	sunflowers
-4	tulips
+0	Orange___Haunglongbing_(Citrus_greening)
+1	Tomato___Tomato_Yellow_Leaf_Curl_Virus
+2	Soybean___healthy
+3	Peach___Bacterial_spot
+4	Tomato___Bacterial_spot

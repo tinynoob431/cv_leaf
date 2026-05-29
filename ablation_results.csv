@@ -1,5 +1,5 @@
 ﻿timestamp,ablation_preset,model,note,use_cbam,use_data_augmentation,mixup_alpha,cutmix_alpha,mixup_cutmix_prob,final_eval_loss,final_eval_acc
-2026-05-27 18:09:14,baseline,ResNet50 baseline,普通迁移学习,False,False,0.0,0.0,0.0,0.3251008612414201,0.8866666666666667
-2026-05-27 18:14:40,aug,ResNet50 + 数据增强,提升泛化,False,True,0.0,0.0,0.0,0.3920098508894443,0.88
-2026-05-27 18:48:51,cbam,ResNet50 + CBAM,引入注意力机制,True,True,0.0,0.0,0.0,0.4960392053922017,0.88
-2026-05-27 19:40:24,cbam_mix,ResNet50 + CBAM + MixUp/CutMix,最终模型,True,True,0.2,1.0,0.6,0.8292287357648214,0.84
+2026-05-29 16:52:06,baseline,ResNet50 baseline,普通迁移学习,False,False,0.0,0.0,0.0,0.540512181520462,0.84
+2026-05-29 16:53:01,aug,ResNet50 + 数据增强,提升泛化,False,True,0.0,0.0,0.0,0.5126903760433197,0.84
+2026-05-29 16:58:57,cbam,ResNet50 + CBAM,引入注意力机制,True,True,0.0,0.0,0.0,1.5305417728424071,0.64
+2026-05-29 17:04:37,cbam_mix,ResNet50 + CBAM + MixUp/CutMix,最终模型,True,True,0.2,1.0,0.6,1.534768714904785,0.76

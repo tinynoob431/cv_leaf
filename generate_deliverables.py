@@ -108,7 +108,7 @@ def add_subtitle(doc: Document, text: str):
 def build_report_docx(root: Path, report_dir: Path, df: pd.DataFrame, stats: dict):
     doc = Document()
     add_title(doc, "学科实践二大作业实验报告")
-    add_subtitle(doc, "题目：基于 ResNet50 + CBAM 的花卉图像分类与消融实验")
+    add_subtitle(doc, "题目：基于 ResNet50 + CBAM 的叶片图像分类与消融实验")
     add_subtitle(doc, f"生成日期：{datetime.now().strftime('%Y-%m-%d')}")
     doc.add_paragraph("")
 
@@ -121,7 +121,7 @@ def build_report_docx(root: Path, report_dir: Path, df: pd.DataFrame, stats: dic
 
     doc.add_heading("2. 数据集说明", level=1)
     doc.add_paragraph(
-        "数据来源：TensorFlow Flowers 公共数据集（公开下载地址见参考文献），本项目离线构建为 processed_data 格式。"
+        "数据来源：PlantVillage 公开叶片数据集（公开下载地址见参考文献），本项目离线构建为 processed_data 格式。"
     )
     doc.add_paragraph(
         f"本次实验共使用 {stats['num_classes']} 类，训练集 {stats['num_train']} 张，验证集 {stats['num_eval']} 张。"
@@ -229,8 +229,8 @@ def build_report_docx(root: Path, report_dir: Path, df: pd.DataFrame, stats: dic
     doc.add_heading("9. 参考文献与数据来源", level=1)
     doc.add_paragraph("[1] He et al., Deep Residual Learning for Image Recognition, arXiv:1512.03385.")
     doc.add_paragraph("[2] Woo et al., CBAM: Convolutional Block Attention Module, arXiv:1807.06521.")
-    doc.add_paragraph("[3] TensorFlow Datasets: tf_flowers.")
-    doc.add_paragraph("[4] Download URL: https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz")
+    doc.add_paragraph("[3] PlantVillage Dataset.")
+    doc.add_paragraph("[4] Download URL: https://github.com/spMohanty/PlantVillage-Dataset")
 
     out_path = report_dir / "实验报告_叶片分类_CBAM.docx"
     doc.save(out_path)
@@ -266,8 +266,8 @@ def build_report_markdown(root: Path, report_dir: Path, df: pd.DataFrame, stats:
     lines.append("## 4. 参考链接")
     lines.append("- ResNet: https://arxiv.org/abs/1512.03385")
     lines.append("- CBAM: https://arxiv.org/abs/1807.06521")
-    lines.append("- TF Flowers: https://www.tensorflow.org/datasets/catalog/tf_flowers")
-    lines.append("- 下载地址: https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz")
+    lines.append("- PlantVillage: https://github.com/spMohanty/PlantVillage-Dataset")
+    lines.append("- 下载地址: https://github.com/spMohanty/PlantVillage-Dataset/archive/refs/heads/master.zip")
     md_path = report_dir / "实验报告_简版.md"
     md_path.write_text("\n".join(lines), encoding="utf-8")
     return md_path
@@ -308,7 +308,7 @@ def build_ppt(root: Path, ppt_dir: Path, df: pd.DataFrame, stats: dict):
     s1 = prs.slides.add_slide(prs.slide_layouts[0])
     s1.shapes.title.text = "学科实践二大作业"
     s1.placeholders[1].text = (
-        "基于 ResNet50 + CBAM 的花卉图像分类\n"
+        "基于 ResNet50 + CBAM 的叶片图像分类\n"
         f"自动生成时间：{datetime.now().strftime('%Y-%m-%d')}"
     )
 
@@ -321,10 +321,10 @@ def build_ppt(root: Path, ppt_dir: Path, df: pd.DataFrame, stats: dict):
 
     # Slide 3
     s3 = add_title_and_bullets(prs, "数据集说明", [
-        "数据源：TensorFlow Flowers（公开数据集）",
+        "数据源：PlantVillage（公开叶片数据集）",
         f"类别数：{stats['num_classes']}（{', '.join(stats['class_names'])}）",
         f"训练集：{stats['num_train']}，验证集：{stats['num_eval']}",
-        "图像特点：自然场景、视角多样、背景干扰明显",
+        "图像特点：叶片病害特征明显、纹理与斑点细节重要",
     ])
     dist_img = pick_image(root, "baseline", "class_distribution.png")
     if dist_img:
@@ -413,7 +413,7 @@ def build_submission_checklist(root: Path, deliver_dir: Path):
         "根据《项目要求.pptx》，本项目已准备以下提交物：",
         "",
         "1. 实验报告（Word）",
-        "2. 源码（.py/.ipynb）",
+        "2. 源码（.py）",
         "3. 数据集（processed_data + 原始下载包）",
         "4. 汇报PPT（5分钟）",
         "",
@@ -422,7 +422,7 @@ def build_submission_checklist(root: Path, deliver_dir: Path):
         f"- 报告简版：{(deliver_dir / 'report' / '实验报告_简版.md').as_posix()}",
         f"- 汇报PPT：{(deliver_dir / 'presentation' / '课程大作业汇报_叶片分类_CBAM.pptx').as_posix()}",
         "- 源码：leaf_classification_cbam.py, prepare_dataset.py",
-        "- 数据集：processed_data/, datasets/flower_photos.tgz, datasets/flower_photos/",
+        "- 数据集：processed_data/, datasets/plantvillage_master.zip, datasets/PlantVillage-Dataset-master/",
         "",
         "## 打包命名（按课程要求）",
         "文件名格式：## _组长姓名_组员1姓名_组员2姓名.zip",

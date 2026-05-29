@@ -30,12 +30,9 @@
 import os
 import sys
 import csv
-import tarfile
-import zipfile
-import shutil
 import random
 import argparse
-import urllib.request
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -96,7 +93,10 @@ CFG = {
     'output_dir': 'outputs_leaf_ablation',
     'ablation_result_file': 'ablation_results.csv',
     'auto_prepare_dataset': True,
-    'dataset_download_url': 'https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz',
+    'dataset_download_url': 'https://github.com/spMohanty/PlantVillage-Dataset/archive/refs/heads/master.zip',
+    'dataset_num_classes': 5,
+    'dataset_class_names': '',
+    'dataset_variant': 'color',
     'dataset_train_per_class': 120,
     'dataset_eval_per_class': 30,
 }
@@ -151,6 +151,10 @@ def parse_runtime_args():
     parser.add_argument('--num_workers', type=int, default=None)
     parser.add_argument('--train_per_class', type=int, default=None)
     parser.add_argument('--eval_per_class', type=int, default=None)
+    parser.add_argument('--dataset_url', default=None)
+    parser.add_argument('--dataset_num_classes', type=int, default=None)
+    parser.add_argument('--dataset_class_names', default=None)
+    parser.add_argument('--dataset_variant', choices=['color', 'grayscale', 'segmented'], default=None)
     parser.add_argument('--disable_auto_prepare_dataset', action='store_true')
     args, _ = parser.parse_known_args()
     return args
@@ -173,6 +177,14 @@ if args.train_per_class is not None:
     CFG['dataset_train_per_class'] = max(1, int(args.train_per_class))
 if args.eval_per_class is not None:
     CFG['dataset_eval_per_class'] = max(1, int(args.eval_per_class))
+if args.dataset_url is not None:
+    CFG['dataset_download_url'] = args.dataset_url
+if args.dataset_num_classes is not None:
+    CFG['dataset_num_classes'] = max(1, int(args.dataset_num_classes))
+if args.dataset_class_names is not None:
+    CFG['dataset_class_names'] = str(args.dataset_class_names).strip()
+if args.dataset_variant is not None:
+    CFG['dataset_variant'] = args.dataset_variant
 if args.disable_auto_prepare_dataset:
     CFG['auto_prepare_dataset'] = False
 
@@ -202,6 +214,10 @@ print('Ablation preset:', CFG['ablation_preset'])
 print('Model for report:', CFG['report_model'])
 print('Epochs (warmup/finetune):', CFG['warmup_epochs'], CFG['finetune_epochs'])
 print('Batch size:', CFG['batch_size'])
+if CFG['finetune_epochs'] <= 1:
+    print('Warning: finetune_epochs <= 1 is a smoke-test setting and may under-estimate CBAM/MixUp performance.')
+if CFG['use_cbam'] and CFG['warmup_epochs'] == 0:
+    print('Warning: CBAM is enabled but warmup_epochs=0; accuracy may be unstable on short runs.')
 
 
 
@@ -218,114 +234,54 @@ def has_required_dataset_files():
     return len(missing) == 0, missing
 
 
-def prepare_dataset_from_tf_flowers(train_per_class, eval_per_class):
-    print('\n开始自动准备公开数据集（TF Flowers）...')
-    datasets_dir = WORK_DIR / 'datasets'
-    datasets_dir.mkdir(parents=True, exist_ok=True)
-    tgz_path = datasets_dir / 'flower_photos.tgz'
-    raw_root = datasets_dir / 'flower_photos'
+def run_prepare_dataset_script():
+    script_path = WORK_DIR / 'prepare_dataset.py'
+    if not script_path.exists():
+        raise FileNotFoundError(f'Cannot find dataset prep script: {script_path}')
 
-    if not tgz_path.exists():
-        print('下载数据集:', CFG['dataset_download_url'])
-        urllib.request.urlretrieve(CFG['dataset_download_url'], str(tgz_path))
-        print('下载完成:', tgz_path)
-    else:
-        print('已找到下载包:', tgz_path)
+    cmd = [
+        sys.executable,
+        str(script_path),
+        '--url', str(CFG['dataset_download_url']),
+        '--train_per_class', str(int(CFG['dataset_train_per_class'])),
+        '--eval_per_class', str(int(CFG['dataset_eval_per_class'])),
+        '--num_classes', str(int(CFG['dataset_num_classes'])),
+        '--plantvillage_variant', str(CFG['dataset_variant']),
+        '--seed', str(int(CFG['seed'])),
+        '--force',
+    ]
+    class_names = str(CFG.get('dataset_class_names', '')).strip()
+    if class_names:
+        cmd.extend(['--class_names', class_names])
 
-    if not raw_root.exists():
-        print('解压数据集...')
-        with tarfile.open(tgz_path, 'r:gz') as tf:
-            try:
-                tf.extractall(path=datasets_dir, filter='data')
-            except TypeError:
-                tf.extractall(path=datasets_dir)
-        print('解压完成:', raw_root)
-    else:
-        print('已找到原始目录:', raw_root)
-
-    classes = sorted([p.name for p in raw_root.iterdir() if p.is_dir()])
-    if len(classes) < 5:
-        raise RuntimeError(f'类别数量不足 5，当前仅 {len(classes)} 类: {classes}')
-    print('类别列表:', classes)
-
-    if DATASET_DIR.exists():
-        shutil.rmtree(DATASET_DIR)
-    images_dir = DATASET_DIR / 'images'
-    images_dir.mkdir(parents=True, exist_ok=True)
-
-    rng = random.Random(CFG['seed'])
-    label_lines = []
-    train_lines = []
-    eval_lines = []
-
-    need_per_class = int(train_per_class) + int(eval_per_class)
-    for label_id, cls in enumerate(classes):
-        src_images = sorted((raw_root / cls).glob('*.jpg'))
-        rng.shuffle(src_images)
-        if len(src_images) < need_per_class:
-            raise RuntimeError(
-                f'类别 {cls} 图片数不足，当前 {len(src_images)}，但需要 {need_per_class}（train+eval）。'
-            )
-        selected = src_images[:need_per_class]
-        cls_train = selected[:train_per_class]
-        cls_eval = selected[train_per_class:train_per_class + eval_per_class]
-
-        dst_cls_dir = images_dir / cls
-        dst_cls_dir.mkdir(parents=True, exist_ok=True)
-        for p in cls_train + cls_eval:
-            shutil.copy2(p, dst_cls_dir / p.name)
-
-        label_lines.append(f'{label_id}\t{cls}')
-        for p in cls_train:
-            rel = (Path('images') / cls / p.name).as_posix()
-            train_lines.append(f'{rel} {label_id}')
-        for p in cls_eval:
-            rel = (Path('images') / cls / p.name).as_posix()
-            eval_lines.append(f'{rel} {label_id}')
-
-    (DATASET_DIR / 'label_list.txt').write_text('\n'.join(label_lines) + '\n', encoding='utf-8')
-    (DATASET_DIR / 'train.txt').write_text('\n'.join(train_lines) + '\n', encoding='utf-8')
-    (DATASET_DIR / 'eval.txt').write_text('\n'.join(eval_lines) + '\n', encoding='utf-8')
-    print(f'自动准备完成: train={len(train_lines)}, eval={len(eval_lines)}')
+    print('\nRunning dataset preparation command:')
+    print(' '.join(cmd))
+    subprocess.run(cmd, cwd=str(WORK_DIR), check=True)
 
 
 def ensure_dataset():
-    """确保 processed_data 可用；优先使用本地数据，必要时自动下载并构建。"""
+    """Ensure processed_data exists; auto-build it if missing."""
     ok, missing = has_required_dataset_files()
     if ok:
-        print('processed_data 已存在且完整。')
+        print('processed_data exists and is complete.')
         return
 
     if DATASET_DIR.exists():
-        print('发现 processed_data 但文件不完整，缺少:', missing)
+        print('processed_data exists but is incomplete, missing:', missing)
 
-    zip_candidates = [
-        WORK_DIR / 'data.zip',
-        Path('/home/aistudio/data/data73970/data.zip'),
-        Path('/home/aistudio/data/data.zip'),
-    ]
-    zip_path = next((p for p in zip_candidates if p.exists()), None)
-    if zip_path is not None:
-        print(f'正在解压: {zip_path}')
-        with zipfile.ZipFile(zip_path, 'r') as zf:
-            zf.extractall(WORK_DIR)
+    if not CFG.get('auto_prepare_dataset', True):
+        raise FileNotFoundError(
+            f'processed_data is missing required files: {missing}. '
+            f'Enable auto prepare or run prepare_dataset.py manually.'
+        )
 
+    run_prepare_dataset_script()
     ok, missing = has_required_dataset_files()
     if ok:
-        print('数据集检查通过。')
+        print('Dataset check passed.')
         return
 
-    if CFG.get('auto_prepare_dataset', True):
-        prepare_dataset_from_tf_flowers(
-            train_per_class=int(CFG['dataset_train_per_class']),
-            eval_per_class=int(CFG['dataset_eval_per_class']),
-        )
-        ok, missing = has_required_dataset_files()
-        if ok:
-            print('数据集检查通过。')
-            return
-
-    raise FileNotFoundError(f'processed_data 缺少必要文件: {missing}')
+    raise FileNotFoundError(f'processed_data is still missing required files: {missing}')
 
 ensure_dataset()
 
@@ -929,15 +885,24 @@ GLOBAL_BEST_ACC = -1.0
 def run_stage(model, stage_name, epochs, lr, train_backbone):
     global GLOBAL_BEST_ACC
 
+    if epochs <= 0:
+        print(f'\n===== {stage_name} =====')
+        print('Skip this stage because epochs <= 0.')
+        return []
+
     set_backbone_trainable(model, trainable=train_backbone)
     total_params, trainable_params = count_trainable_params(model)
     print(f'\n===== {stage_name} =====')
     print(f'可训练参数: {trainable_params:,} / {total_params:,}')
 
+    trainable_vars = [p for p in model.parameters() if not p.stop_gradient]
+    if len(trainable_vars) == 0:
+        raise RuntimeError(f'No trainable parameters in stage {stage_name}.')
+
     lr_scheduler = paddle.optimizer.lr.CosineAnnealingDecay(learning_rate=lr, T_max=max(1, epochs))
     optimizer = paddle.optimizer.AdamW(
         learning_rate=lr_scheduler,
-        parameters=[p for p in model.parameters() if not p.stop_gradient],
+        parameters=trainable_vars,
         weight_decay=CFG['weight_decay'],
     )
 

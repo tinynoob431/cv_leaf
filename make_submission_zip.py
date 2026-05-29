@@ -25,7 +25,6 @@ def main():
         root / "deliverables" / "report" / "实验报告_叶片分类_CBAM.docx",
         root / "deliverables" / "presentation" / "课程大作业汇报_叶片分类_CBAM.pptx",
         root / "leaf_classification_cbam.py",
-        root / "leaf_classification_cbam.ipynb",
         root / "prepare_dataset.py",
         root / "requirements.txt",
         root / "README.md",
